@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pabellón Central - Hospital Clínico Félix Bulnes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Librería para leer Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Librería para generar PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+
+  <!-- Menú lateral -->
+  <div id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <h2>Pabellón Central</h2>
+      <p class="sidebar-sub">Hospital Clínico Félix Bulnes</p>
+    </div>
+
+    <button class="nav-btn" onclick="mostrarPantalla('panelGeneral')">Panel General</button>
+    <button class="nav-btn" onclick="mostrarPantalla('listaEspera')">Lista de Espera</button>
+    <button class="nav-btn" onclick="mostrarPantalla('preanestesia')">Preanestesia</button>
+    <button class="nav-btn" onclick="mostrarPantalla('cma')">CMA</button>
+    <button class="nav-btn" onclick="mostrarPantalla('pabellon')">Pabellones</button>
+    <button class="nav-btn" onclick="mostrarPantalla('recuperacion')">Recuperación</button>
+    <button class="nav-btn" onclick="mostrarPantalla('mapaCMA')">Mapa CMA</button>
+    <button class="nav-btn" onclick="mostrarPantalla('mapaRecuperacion')">Mapa Recuperación</button>
+    <button class="nav-btn" onclick="mostrarPantalla('smartTV')">Smart TV</button>
+    <button class="nav-btn" onclick="abrirSelector()">Informe PDF</button>
+
+    <div class="sidebar-footer">
+      <label for="inputExcel" class="excel-label">Cargar lista quirúrgica (Excel)</label>
+      <input type="file" id="inputExcel" accept=".xlsx,.xls" />
+    </div>
+  </div>
+
+  <!-- Botón menú móvil -->
+  <div id="mobileMenuBtn" class="mobile-menu-btn" onclick="toggleMenu()">☰</div>
+
+  <!-- PANEL GENERAL (PC) -->
+  <section id="panelGeneral" class="pantalla">
+    <h1>Panel General</h1>
+    <p class="panel-desc">
+      Resumen de ocupación y distribución de pacientes por unidad.
+    </p>
+    <div id="panelGeneralResumen" class="panel-resumen"></div>
+  </section>
+
+  <!-- PANEL GENERAL MÓVIL -->
+  <section id="panelGeneralMovil" class="pantalla pantalla-movil">
+    <h2>Panel General (Móvil)</h2>
+    <div id="mobileLista" class="mobile-lista"></div>
+  </section>
+
+  <!-- LISTA DE ESPERA -->
+  <section id="listaEspera" class="pantalla">
+    <h2>Lista de Espera</h2>
+    <p>Pacientes ingresados desde la lista quirúrgica diaria.</p>
+    <div id="listaEsperaContenedor" class="lista-pacientes"></div>
+  </section>
+
+  <!-- PREANESTESIA -->
+  <section id="preanestesia" class="pantalla">
+    <h2>Preanestesia (16 camas)</h2>
+    <div id="listaPreanestesia" class="lista-pacientes"></div>
+  </section>
+
+  <!-- CMA -->
+  <section id="cma" class="pantalla">
+    <h2>CMA (20 camas)</h2>
+    <div id="listaCMA" class="lista-pacientes"></div>
+  </section>
+
+  <!-- PABELLONES -->
+  <section id="pabellon" class="pantalla">
+    <h2>Pabellones (16 cupos)</h2>
+    <div id="listaPabellon" class="lista-pacientes"></div>
+  </section>
+
+  <!-- RECUPERACIÓN -->
+  <section id="recuperacion" class="pantalla">
+    <h2>Recuperación (20 camas)</h2>
+    <div id="listaRecuperacion" class="lista-pacientes"></div>
+  </section>
+
+  <!-- MAPA RECUPERACIÓN -->
+  <section id="mapaRecuperacion" class="pantalla">
+    <h2>Mapa de Camas – Recuperación</h2>
+    <h3>Sala Derecha</h3>
+    <div id="salaDerecha" class="grid-camas"></div>
+
+    <h3>Sala Central</h3>
+    <div id="salaCentral" class="grid-camas"></div>
+
+    <h3>Sala Izquierda</h3>
+    <div id="salaIzquierda" class="grid-camas"></div>
+  </section>
+
+  <!-- MAPA CMA -->
+  <section id="mapaCMA" class="pantalla">
+    <h2>Mapa de Camas – CMA</h2>
+    <h3>Sala Derecha</h3>
+    <div id="cmaDerecha" class="grid-camas"></div>
+
+    <h3>Sala Central</h3>
+    <div id="cmaCentral" class="grid-camas"></div>
+
+    <h3>Sala Izquierda</h3>
+    <div id="cmaIzquierda" class="grid-camas"></div>
+  </section>
+
+  <!-- SMART TV -->
+  <section id="smartTV" class="pantalla-tv">
+    <div class="tv-header">
+      <h1>Hospital Clínico Félix Bulnes</h1>
+      <h2>Pabellón Central</h2>
+      <div id="tvHora"></div>
+    </div>
+
+    <div id="listaTV" class="tv-lista"></div>
+    <div id="tvPagina" class="tv-pagina"></div>
+  </section>
+
+  <!-- SELECTOR INFORME PDF -->
+  <div id="selectorInforme" class="selector-informe oculto">
+    <h2>Seleccionar Sectores para el Informe</h2>
+
+    <div class="selector-grupo">
+      <label>
+        <input type="checkbox" id="chkTodos" onchange="seleccionarTodos()" />
+        Seleccionar Todos
+      </label>
+    </div>
+
+    <div class="selector-grupo">
+      <label><input type="checkbox" class="chk-sala" value="listaEspera" /> Lista de Espera</label>
+      <label><input type="checkbox" class="chk-sala" value="preanestesia" /> Preanestesia</label>
+      <label><input type="checkbox" class="chk-sala" value="cma" /> CMA</label>
+      <label><input type="checkbox" class="chk-sala" value="pabellon" /> Pabellones</label>
+      <label><input type="checkbox" class="chk-sala" value="recuperacion" /> Recuperación</label>
+      <label><input type="checkbox" class="chk-sala" value="alta" /> Alta (última hora)</label>
+    </div>
+
+    <div class="btns-selector">
+      <button onclick="cerrarSelector()">Cancelar</button>
+      <button onclick="generarPDFDesdeSelector()">Generar PDF</button>
+    </div>
+  </div>
+
+</body>
+</html>
