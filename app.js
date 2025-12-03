@@ -185,16 +185,13 @@ function crearBotonesMovimiento(paciente) {
 
   return salas
     .filter(s => s.id !== paciente.sala)
-    .map(
-      s =>
-        '<button onclick="moverPaciente(\'' +
-        paciente.id +
-        "\', '" +
-        s.id +
-        "')">" +
+    .map(s => {
+      return (
+        `<button onclick="moverPaciente('${paciente.id}', '${s.id}')">` +
         s.nombre +
         "</button>"
-    )
+      );
+    })
     .join("");
 }
 
