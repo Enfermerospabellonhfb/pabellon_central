@@ -36,6 +36,61 @@ let paginaActualTV = 0;
 const pacientesPorPaginaTV = 10;
 
 // =======================
+// Detección automática de columnas
+// =======================
+function detectarColumnaNombre(json) {
+  if (!json || json.length === 0) return null;
+  const columnas = Object.keys(json[0]);
+  const columnasUpper = columnas.map(c => c.toUpperCase());
+  // Prioridad: columnas con "NOMBRE"
+  for (let i = 0; i < columnas.length; i++) {
+    if (columnasUpper[i].includes("NOMBRE")) return columnas[i];
+  }
+  // Segundo: columnas con "PACIENTE"
+  for (let i = 0; i < columnas.length; i++) {
+    if (columnasUpper[i].includes("PACIENTE")) return columnas[i];
+  }
+  return null;
+}
+
+function detectarColumnaRUT(json) {
+  if (!json || json.length === 0) return null;
+  const columnas = Object.keys(json[0]);
+  const columnasUpper = columnas.map(c => c.toUpperCase());
+  for (let i = 0; i < columnas.length; i++) {
+    if (columnasUpper[i].includes("RUT") || columnasUpper[i].includes("RUN"))
+      return columnas[i];
+  }
+  for (let i = 0; i < columnas.length; i++) {
+    if (columnasUpper[i].includes("ID") || columnasUpper[i].includes("IDENT"))
+      return columnas[i];
+  }
+  return null;
+}
+
+function detectarColumnaDiagnostico(json) {
+  if (!json || json.length === 0) return null;
+  const columnas = Object.keys(json[0]);
+  const columnasUpper = columnas.map(c => c.toUpperCase());
+  const claves = ["DIAG", "DX", "DIAGN"];
+  for (let i = 0; i < columnas.length; i++) {
+    if (claves.some(k => columnasUpper[i].includes(k))) return columnas[i];
+  }
+  return null;
+}
+
+function detectarColumnaCirugia(json) {
+  if (!json || json.length === 0) return null;
+  const columnas = Object.keys(json[0]);
+  const columnasUpper = columnas.map(c => c.toUpperCase());
+  const claves = ["CIR", "PROC", "CIRUG", "OPER", "INTERV"];
+  for (let i = 0; i < columnas.length; i++) {
+    if (claves.some(k => columnasUpper[i].includes(k))) return columnas[i];
+  }
+  return null;
+}
+
+// =======================
 // Utilidades
 // =======================
 function obtenerIniciales(nombre) {
@@ -77,12 +132,10 @@ function obtenerCamaLibre(sala) {
 // Navegación
 // =======================
 function mostrarPantalla(id) {
-  // Ocultar todas
   document
     .querySelectorAll(".pantalla, .pantalla-tv")
     .forEach(p => (p.style.display = "none"));
 
-  // Para panel general en móvil, usar versión móvil
   if (id === "panelGeneral" && window.innerWidth <= 800) {
     const mobile = document.getElementById("panelGeneralMovil");
     if (mobile) mobile.style.display = "block";
@@ -91,10 +144,8 @@ function mostrarPantalla(id) {
     if (seccion) seccion.style.display = "block";
   }
 
-  // Cerrar menú en móvil
   if (window.innerWidth < 800) toggleMenu(false);
 
-  // Refrescar vistas según pantalla
   if (id === "panelGeneral") {
     cargarPanelGeneral();
     cargarPanelGeneralMovil();
@@ -151,14 +202,12 @@ function moverPaciente(id, nuevaSala) {
   const p = pacientes.find(x => x.id === id);
   if (!p) return;
 
-  // Liberar cama actual
   if (["preanestesia", "cma", "recuperacion"].includes(p.sala)) {
     p.cama = null;
   }
 
   p.sala = nuevaSala;
 
-  // Asignar cama si corresponde
   if (["preanestesia", "cma", "recuperacion"].includes(nuevaSala)) {
     const camaLibre = obtenerCamaLibre(nuevaSala);
     if (camaLibre === null) {
@@ -168,7 +217,6 @@ function moverPaciente(id, nuevaSala) {
     }
   }
 
-  // Registrar hora de alta
   if (nuevaSala === "alta") {
     p.horaAlta = Date.now();
   }
@@ -202,14 +250,17 @@ function cargarListaPacientes() {
     const shortName = obtenerIniciales(p.nombre);
 
     let info = "";
-    if (p.cama) info = "Cama: " + p.cama;
+    if (p.rut) info += "RUT: " + p.rut + "<br>";
+    if (p.cama) info += "Cama: " + p.cama;
 
     div.innerHTML =
       "<h3>" +
       shortName +
-      '</h3><div class="info">' +
+      "</h3>" +
+      "<div class='info'>" +
       info +
-      "</div><div class='acciones'>" +
+      "</div>" +
+      "<div class='acciones'>" +
       crearBotonesMovimiento(p) +
       "</div>";
 
@@ -417,7 +468,6 @@ function cargarSmartTV() {
   lblPag.textContent = "Página " + (paginaActualTV + 1) + " de " + totalPaginas;
 }
 
-// Reloj y cambio de página en SmartTV
 setInterval(() => {
   const lblHora = document.getElementById("tvHora");
   if (lblHora) {
@@ -529,7 +579,15 @@ async function generarInformePDF(salasElegidas) {
 
       doc.setFontSize(12);
       lista.forEach(p => {
-        doc.text("• " + p.nombre, 15, y);
+        let linea = "• " + p.nombre;
+        if (p.rut) linea += " — RUT: " + p.rut;
+        if (p.diagnostico) linea += " — Dx: " + p.diagnostico;
+        if (p.cirugia) linea += " — Cirugía: " + p.cirugia;
+        if ((p.sala === "cma" || p.sala === "recuperacion") && p.cama) {
+          linea += " — Cama: " + p.cama;
+        }
+
+        doc.text(linea, 15, y);
         y += 7;
 
         if (y > 270) {
@@ -572,19 +630,32 @@ function cargarPacientesDesdeExcel(json) {
   pacientes = [];
   let idCounter = 1;
 
-  json.forEach(row => {
-    const nombre =
-      row["NOMBRE"] ||
-      row["Nombre"] ||
-      row["Paciente"] ||
-      row["PACIENTE"] ||
-      "";
+  const columnaNombre = detectarColumnaNombre(json);
+  const columnaRUT = detectarColumnaRUT(json);
+  const columnaDiagnostico = detectarColumnaDiagnostico(json);
+  const columnaCirugia = detectarColumnaCirugia(json);
 
-    if (!nombre) return;
+  if (!columnaNombre) {
+    alert("No se encontró una columna válida para el nombre del paciente.");
+    return;
+  }
+
+  json.forEach(row => {
+    const nombre = row[columnaNombre]?.toString().trim();
+    if (!nombre || nombre === "" || nombre === "V") return;
+
+    const rut = columnaRUT ? row[columnaRUT]?.toString().trim() : null;
+    const diagnostico = columnaDiagnostico
+      ? row[columnaDiagnostico]?.toString().trim()
+      : null;
+    const cirugia = columnaCirugia ? row[columnaCirugia]?.toString().trim() : null;
 
     pacientes.push({
       id: "P" + idCounter++,
       nombre: nombre,
+      rut: rut || null,
+      diagnostico: diagnostico || null,
+      cirugia: cirugia || null,
       sala: "listaEspera",
       cama: null,
       horaAlta: null
@@ -617,36 +688,54 @@ function cargarPacientesDemo() {
     {
       id: "P1",
       nombre: "Ana Gomez Ruiz",
+      rut: "11.111.111-1",
+      diagnostico: "Dx demo",
+      cirugia: "Cirugía demo",
       sala: "listaEspera",
       cama: null
     },
     {
       id: "P2",
       nombre: "Marco Diaz Soto",
+      rut: "22.222.222-2",
+      diagnostico: "Dx demo 2",
+      cirugia: "Cirugía demo 2",
       sala: "preanestesia",
       cama: 1
     },
     {
       id: "P3",
       nombre: "Laura Perez Vega",
+      rut: "33.333.333-3",
+      diagnostico: "Dx demo 3",
+      cirugia: "Cirugía demo 3",
       sala: "pabellon",
       cama: null
     },
     {
       id: "P4",
       nombre: "Jorge Fuentes Lopez",
+      rut: "44.444.444-4",
+      diagnostico: "Dx demo 4",
+      cirugia: "Cirugía demo 4",
       sala: "recuperacion",
       cama: 7
     },
     {
       id: "P5",
       nombre: "Claudia Rojas Arce",
+      rut: "55.555.555-5",
+      diagnostico: "Dx demo 5",
+      cirugia: "Cirugía demo 5",
       sala: "cma",
       cama: 3
     },
     {
       id: "P6",
       nombre: "Pedro Mella Torres",
+      rut: "66.666.666-6",
+      diagnostico: "Dx demo 6",
+      cirugia: "Cirugía demo 6",
       sala: "alta",
       cama: null,
       horaAlta: Date.now()
